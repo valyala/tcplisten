@@ -23,7 +23,7 @@ import (
 	"syscall"
 )
 
-// Config provides options to enable on the returned socket.
+// Config provides options to enable on the returned listener.
 type Config struct {
 	// ReusePort enables SO_REUSEPORT.
 	ReusePort bool
