@@ -37,6 +37,9 @@ type Config struct {
 
 // NewListener returns TCP listener with options set in the Config.
 //
+// The function may be called many times for creating distinct listeners
+// with the given config.
+//
 // Only tcp4 and tcp6 networks are supported.
 func (cfg *Config) NewListener(network, addr string) (net.Listener, error) {
 	sa, soType, err := getSockaddr(network, addr)
