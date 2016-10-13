@@ -1,3 +1,8 @@
+[![Build Status](https://travis-ci.org/valyala/tcplisten.svg)](https://travis-ci.org/valyala/fasthttp)
+[![GoDoc](https://godoc.org/github.com/valyala/tcplisten?status.svg)](http://godoc.org/github.com/valyala/fasthttp)
+[![Go Report](https://goreportcard.com/badge/github.com/valyala/tcplisten)](https://goreportcard.com/report/github.com/valyala/fasthttp)
+
+
 Package tcplisten provides customizable TCP net.Listener with various
 performance-related options:
 
@@ -13,4 +18,4 @@ performance-related options:
 
 [Documentation](https://godoc.org/github.com/valyala/tcplisten).
 
-The package is derived from https://github.com/kavu/go_reuseport .
+The package is derived from [go_reuseport](https://github.com/kavu/go_reuseport).
