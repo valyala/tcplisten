@@ -62,6 +62,7 @@ func (cfg *Config) NewListener(network, addr string) (net.Listener, error) {
 			return nil, fmt.Errorf("cannot create listening socket: %s", err)
 		}
 		if err = syscall.SetNonblock(fd, true); err != nil {
+			syscall.Close(fd)
 			return nil, fmt.Errorf("cannot make non-blocked listening socket: %s", err)
 		}
 	default:
