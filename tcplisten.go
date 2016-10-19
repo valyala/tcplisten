@@ -47,14 +47,25 @@ func (cfg *Config) NewListener(network, addr string) (net.Listener, error) {
 		return nil, err
 	}
 
-	syscall.ForkLock.RLock()
-	fd, err := syscall.Socket(soType, syscall.SOCK_STREAM, syscall.IPPROTO_TCP)
-	if err == nil {
-		syscall.CloseOnExec(fd)
-	}
-	syscall.ForkLock.RUnlock()
-	if err != nil {
-		return nil, err
+	// This code has been stolen from net/sock_cloexec.go
+	fd, err := syscall.Socket(soType, syscall.SOCK_STREAM|syscall.SOCK_NONBLOCK|syscall.SOCK_CLOEXEC, syscall.IPPROTO_TCP)
+	switch err {
+	case nil:
+	case syscall.EPROTONOSUPPORT, syscall.EINVAL:
+		syscall.ForkLock.RLock()
+		fd, err = syscall.Socket(soType, syscall.SOCK_STREAM, syscall.IPPROTO_TCP)
+		if err == nil {
+			syscall.CloseOnExec(fd)
+		}
+		syscall.ForkLock.RUnlock()
+		if err != nil {
+			return nil, fmt.Errorf("cannot create listening socket: %s", err)
+		}
+		if err = syscall.SetNonblock(fd, true); err != nil {
+			return nil, fmt.Errorf("cannot make non-blocked listening socket: %s", err)
+		}
+	default:
+		return nil, fmt.Errorf("cannot create listening unblocked socket: %s", err)
 	}
 
 	if err = cfg.fdSetup(fd, sa, addr); err != nil {
