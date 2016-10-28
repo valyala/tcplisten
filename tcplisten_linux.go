@@ -4,6 +4,9 @@ package tcplisten
 
 import (
 	"fmt"
+	"io/ioutil"
+	"strconv"
+	"strings"
 	"syscall"
 )
 
@@ -27,3 +30,25 @@ func enableFastOpen(fd int) error {
 }
 
 const fastOpenQlen = 16 * 1024
+
+func soMaxConn() (int, error) {
+	data, err := ioutil.ReadFile(soMaxConnFilePath)
+	if err != nil {
+		return -1, err
+	}
+	s := strings.TrimSpace(string(data))
+	n, err := strconv.Atoi(s)
+	if err != nil || n <= 0 {
+		return -1, fmt.Errorf("cannot parse somaxconn %q read from %s: %s", s, soMaxConnFilePath, err)
+	}
+
+	// Linux stores the backlog in a uint16.
+	// Truncate number to avoid wrapping.
+	// See https://github.com/golang/go/issues/5030 .
+	if n > 1<<16-1 {
+		n = 1<<16 - 1
+	}
+	return n, nil
+}
+
+const soMaxConnFilePath = "/proc/sys/net/core/somaxconn"
