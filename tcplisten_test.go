@@ -29,6 +29,13 @@ func TestConfigAll(t *testing.T) {
 	testConfig(t, cfg)
 }
 
+func TestConfigBacklog(t *testing.T) {
+	cfg := Config{
+		Backlog: 32,
+	}
+	testConfig(t, cfg)
+}
+
 func testConfig(t *testing.T, cfg Config) {
 	testConfigV(t, cfg, "tcp4", "localhost:10081")
 	testConfigV(t, cfg, "tcp6", "ip6-localhost:10081")

@@ -33,6 +33,13 @@ type Config struct {
 
 	// FastOpen enables TCP_FASTOPEN.
 	FastOpen bool
+
+	// Backlog is the maximum number of pending TCP connections the listener
+	// may queue before passing them to Accept.
+	// See man 2 listen for details.
+	//
+	// By default system-level backlog value is used.
+	Backlog int
 }
 
 // NewListener returns TCP listener with options set in the Config.
@@ -108,9 +115,11 @@ func (cfg *Config) fdSetup(fd int, sa syscall.Sockaddr, addr string) error {
 		return fmt.Errorf("cannot bind to %q: %s", addr, err)
 	}
 
-	var backlog int
-	if backlog, err = soMaxConn(); err != nil {
-		return fmt.Errorf("cannot determine backlog to pass to listen(2): %s", err)
+	backlog := cfg.Backlog
+	if backlog <= 0 {
+		if backlog, err = soMaxConn(); err != nil {
+			return fmt.Errorf("cannot determine backlog to pass to listen(2): %s", err)
+		}
 	}
 	if err = syscall.Listen(fd, backlog); err != nil {
 		return fmt.Errorf("cannot listen on %q: %s", addr, err)
