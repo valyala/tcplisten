@@ -5,6 +5,7 @@ package tcplisten
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
 	"strconv"
 	"strings"
 	"syscall"
@@ -34,6 +35,10 @@ const fastOpenQlen = 16 * 1024
 func soMaxConn() (int, error) {
 	data, err := ioutil.ReadFile(soMaxConnFilePath)
 	if err != nil {
+		// This error may trigger on travis build. Just use SOMAXCONN
+		if os.IsNotExist(err) {
+			return syscall.SOMAXCONN, nil
+		}
 		return -1, err
 	}
 	s := strings.TrimSpace(string(data))
