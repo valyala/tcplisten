@@ -1,4 +1,5 @@
-// +build !darwin
+//go:build !darwin && !zos
+// +build !darwin !zos
 
 package tcplisten
 
