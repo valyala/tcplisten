@@ -1,3 +1,5 @@
+// +build !js,!wasm
+
 package tcplisten
 
 import (

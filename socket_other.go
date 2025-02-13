@@ -1,4 +1,4 @@
-// +build !darwin
+// +build !darwin,!js,!wasm
 
 package tcplisten
 
