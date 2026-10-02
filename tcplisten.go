@@ -1,3 +1,4 @@
+//go:build linux || darwin || dragonfly || freebsd || netbsd || openbsd || rumprun
 // +build linux darwin dragonfly freebsd netbsd openbsd rumprun
 
 // Package tcplisten provides customizable TCP net.Listener with various
@@ -12,6 +13,9 @@
 //
 //   - TCP_FASTOPEN. See https://lwn.net/Articles/508865/ for details.
 //
+//   - SO_KEEPALIVE. Enables TCP keepalive and sets the keepalive period
+//     for accepted connections.
+//
 // The package is derived from https://github.com/kavu/go_reuseport .
 package tcplisten
 
@@ -21,6 +25,7 @@ import (
 	"net"
 	"os"
 	"syscall"
+	"time"
 )
 
 // Config provides options to enable on the returned listener.
@@ -40,6 +45,12 @@ type Config struct {
 	//
 	// By default system-level backlog value is used.
 	Backlog int
+
+	// KeepAlive enables SO_KEEPALIVE and specifies the keep-alive period
+	// for network connections accepted by this listener.
+	//
+	// By default keep-alive is not enabled.
+	KeepAlive time.Duration
 }
 
 // NewListener returns TCP listener with options set in the Config.
@@ -77,7 +88,39 @@ func (cfg *Config) NewListener(network, addr string) (net.Listener, error) {
 		return nil, err
 	}
 
+	if cfg.KeepAlive > 0 {
+		return &tcpKeepAliveListener{
+			TCPListener: ln.(*net.TCPListener),
+			keepAlive:   cfg.KeepAlive,
+		}, nil
+	}
+
 	return ln, nil
+}
+
+type tcpKeepAliveListener struct {
+	*net.TCPListener
+	keepAlive time.Duration
+}
+
+func (ln *tcpKeepAliveListener) AcceptTCP() (*net.TCPConn, error) {
+	tc, err := ln.TCPListener.AcceptTCP()
+	if err != nil {
+		return nil, err
+	}
+	if err = tc.SetKeepAlive(true); err != nil {
+		tc.Close()
+		return nil, err
+	}
+	if err = tc.SetKeepAlivePeriod(ln.keepAlive); err != nil {
+		tc.Close()
+		return nil, err
+	}
+	return tc, nil
+}
+
+func (ln *tcpKeepAliveListener) Accept() (net.Conn, error) {
+	return ln.AcceptTCP()
 }
 
 func (cfg *Config) fdSetup(fd int, sa syscall.Sockaddr, addr string) error {
@@ -107,6 +150,12 @@ func (cfg *Config) fdSetup(fd int, sa syscall.Sockaddr, addr string) error {
 
 	if cfg.FastOpen {
 		if err = enableFastOpen(fd); err != nil {
+			return err
+		}
+	}
+
+	if cfg.KeepAlive > 0 {
+		if err = enableKeepAlive(fd, cfg.KeepAlive); err != nil {
 			return err
 		}
 	}

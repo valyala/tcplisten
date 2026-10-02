@@ -1,3 +1,4 @@
+//go:build linux
 // +build linux
 
 package tcplisten
@@ -9,12 +10,30 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 )
 
 const (
 	soReusePort = 0x0F
 	tcpFastOpen = 0x17
 )
+
+func enableKeepAlive(fd int, d time.Duration) error {
+	if err := syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_KEEPALIVE, 1); err != nil {
+		return fmt.Errorf("cannot enable SO_KEEPALIVE: %s", err)
+	}
+	secs := int((d + time.Second - 1) / time.Second)
+	if secs <= 0 {
+		secs = 1
+	}
+	if err := syscall.SetsockoptInt(fd, syscall.IPPROTO_TCP, syscall.TCP_KEEPIDLE, secs); err != nil {
+		return fmt.Errorf("cannot set TCP_KEEPIDLE: %s", err)
+	}
+	if err := syscall.SetsockoptInt(fd, syscall.IPPROTO_TCP, syscall.TCP_KEEPINTVL, secs); err != nil {
+		return fmt.Errorf("cannot set TCP_KEEPINTVL: %s", err)
+	}
+	return nil
+}
 
 func enableDeferAccept(fd int) error {
 	if err := syscall.SetsockoptInt(fd, syscall.IPPROTO_TCP, syscall.TCP_DEFER_ACCEPT, 1); err != nil {

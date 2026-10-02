@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -20,11 +21,16 @@ func TestConfigFastOpen(t *testing.T) {
 	testConfig(t, Config{FastOpen: true})
 }
 
+func TestConfigKeepAlive(t *testing.T) {
+	testConfig(t, Config{KeepAlive: 15 * time.Second})
+}
+
 func TestConfigAll(t *testing.T) {
 	cfg := Config{
 		ReusePort:   true,
 		DeferAccept: true,
 		FastOpen:    true,
+		KeepAlive:   15 * time.Second,
 	}
 	testConfig(t, cfg)
 }
@@ -34,6 +40,72 @@ func TestConfigBacklog(t *testing.T) {
 		Backlog: 32,
 	}
 	testConfig(t, cfg)
+}
+
+func TestConfigKeepAliveSocketOptions(t *testing.T) {
+	cfg := Config{
+		KeepAlive: 30 * time.Second,
+	}
+	ln, err := cfg.NewListener("tcp4", "localhost:10082")
+	if err != nil {
+		t.Fatalf("cannot create listener: %s", err)
+	}
+	defer ln.Close()
+
+	tcpLn, ok := ln.(interface {
+		AcceptTCP() (*net.TCPConn, error)
+	})
+	if !ok {
+		t.Fatalf("listener does not implement AcceptTCP: %T", ln)
+	}
+
+	ch := make(chan net.Conn, 1)
+	go func() {
+		conn, err := tcpLn.AcceptTCP()
+		if err != nil {
+			t.Errorf("unexpected error in AcceptTCP: %s", err)
+			return
+		}
+		ch <- conn
+	}()
+
+	client, err := net.Dial("tcp4", "localhost:10082")
+	if err != nil {
+		t.Fatalf("cannot dial listener: %s", err)
+	}
+	defer client.Close()
+
+	serverConn := <-ch
+	defer serverConn.Close()
+
+	tcpConn, ok := serverConn.(*net.TCPConn)
+	if !ok {
+		t.Fatalf("accepted connection is not *net.TCPConn: %T", serverConn)
+	}
+
+	rawConn, err := tcpConn.SyscallConn()
+	if err != nil {
+		t.Fatalf("cannot get raw conn: %s", err)
+	}
+
+	var ctrlErr error
+	err = rawConn.Control(func(fd uintptr) {
+		val, err := syscall.GetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_KEEPALIVE)
+		if err != nil {
+			ctrlErr = fmt.Errorf("cannot get SO_KEEPALIVE: %s", err)
+			return
+		}
+		if val == 0 {
+			ctrlErr = fmt.Errorf("SO_KEEPALIVE is not enabled on accepted connection")
+			return
+		}
+	})
+	if err != nil {
+		t.Fatalf("raw conn Control error: %s", err)
+	}
+	if ctrlErr != nil {
+		t.Fatal(ctrlErr)
+	}
 }
 
 func testConfig(t *testing.T, cfg Config) {

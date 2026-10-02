@@ -15,6 +15,9 @@ performance-related options:
 
  * TCP_FASTOPEN. See https://lwn.net/Articles/508865/ for details.
 
+ * SO_KEEPALIVE. Enables TCP keepalive and sets the keepalive period
+   for accepted connections.
+
 
 [Documentation](https://godoc.org/github.com/valyala/tcplisten).
 
