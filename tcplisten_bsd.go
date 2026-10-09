@@ -22,3 +22,12 @@ func soMaxConn() (int, error) {
 	// TODO: properly implement it
 	return syscall.SOMAXCONN, nil
 }
+
+// BSD platforms store the backlog in a uint16. Truncate number to avoid wrapping.
+// See https://github.com/golang/go/issues/5030.
+func maxAckBacklog(n int) int {
+	if n > 1<<16-1 {
+		return 1<<16 - 1
+	}
+	return n
+}

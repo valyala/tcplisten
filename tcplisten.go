@@ -120,6 +120,8 @@ func (cfg *Config) fdSetup(fd int, sa syscall.Sockaddr, addr string) error {
 		if backlog, err = soMaxConn(); err != nil {
 			return fmt.Errorf("cannot determine backlog to pass to listen(2): %s", err)
 		}
+	} else {
+		backlog = maxAckBacklog(backlog)
 	}
 	if err = syscall.Listen(fd, backlog); err != nil {
 		return fmt.Errorf("cannot listen on %q: %s", addr, err)

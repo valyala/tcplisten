@@ -36,6 +36,13 @@ func TestConfigBacklog(t *testing.T) {
 	testConfig(t, cfg)
 }
 
+func TestConfigLargeBacklog(t *testing.T) {
+	cfg := Config{
+		Backlog: 196602,
+	}
+	testConfig(t, cfg)
+}
+
 func testConfig(t *testing.T, cfg Config) {
 	testConfigV(t, cfg, "tcp4", "localhost:10081")
 	testConfigV(t, cfg, "tcp6", "ip6-localhost:10081")
@@ -78,8 +85,10 @@ func testConfigV(t *testing.T, cfg Config, network, addr string) {
 		var resp []byte
 		ch := make(chan struct{})
 		go func() {
-			if resp, err = ioutil.ReadAll(c); err != nil {
-				t.Fatalf("%d. unexpected error when reading response: %s", i, err)
+			var readErr error
+			resp, readErr = ioutil.ReadAll(c)
+			if readErr != nil {
+				t.Errorf("%d. unexpected error when reading response: %s", i, readErr)
 			}
 			close(ch)
 		}()
@@ -120,13 +129,18 @@ func serveEcho(t *testing.T, ln net.Listener) {
 		}
 		req, err := ioutil.ReadAll(c)
 		if err != nil {
-			t.Fatalf("unepxected error when reading request: %s", err)
+			t.Errorf("unepxected error when reading request: %s", err)
+			c.Close()
+			return
 		}
 		if _, err = c.Write(req); err != nil {
-			t.Fatalf("unexpected error when writing response: %s", err)
+			t.Errorf("unexpected error when writing response: %s", err)
+			c.Close()
+			return
 		}
 		if err = c.Close(); err != nil {
-			t.Fatalf("unexpected error when closing connection: %s", err)
+			t.Errorf("unexpected error when closing connection: %s", err)
+			return
 		}
 	}
 }
