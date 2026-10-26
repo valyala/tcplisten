@@ -1,3 +1,4 @@
+//go:build linux || darwin || dragonfly || freebsd || netbsd || openbsd || rumprun
 // +build linux darwin dragonfly freebsd netbsd openbsd rumprun
 
 // Package tcplisten provides customizable TCP net.Listener with various
@@ -20,6 +21,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strconv"
 	"syscall"
 )
 
@@ -150,10 +152,16 @@ func getSockaddr(network, addr string) (sa syscall.Sockaddr, soType int, err err
 		copy(sa6.Addr[:], tcpAddr.IP.To16())
 		if tcpAddr.Zone != "" {
 			ifi, err := net.InterfaceByName(tcpAddr.Zone)
-			if err != nil {
-				return nil, -1, err
+			if err == nil {
+				sa6.ZoneId = uint32(ifi.Index)
+			} else {
+				// Like net.ListenTCP, accept an interface index as well as a name.
+				index, parseErr := strconv.ParseUint(tcpAddr.Zone, 10, 32)
+				if parseErr != nil {
+					return nil, -1, err
+				}
+				sa6.ZoneId = uint32(index)
 			}
-			sa6.ZoneId = uint32(ifi.Index)
 		}
 		return &sa6, syscall.AF_INET6, nil
 	default:
