@@ -1,3 +1,4 @@
+//go:build linux
 // +build linux
 
 package tcplisten
@@ -33,10 +34,15 @@ func enableFastOpen(fd int) error {
 const fastOpenQlen = 16 * 1024
 
 func soMaxConn() (int, error) {
-	data, err := ioutil.ReadFile(soMaxConnFilePath)
+	return readSoMaxConn(soMaxConnFilePath)
+}
+
+func readSoMaxConn(path string) (int, error) {
+	data, err := ioutil.ReadFile(path)
 	if err != nil {
-		// This error may trigger on travis build. Just use SOMAXCONN
-		if os.IsNotExist(err) {
+		// The sysctl may be absent or restricted, for example on Android.
+		// Use the same default as when /proc is not mounted.
+		if os.IsNotExist(err) || os.IsPermission(err) {
 			return syscall.SOMAXCONN, nil
 		}
 		return -1, err
@@ -44,7 +50,7 @@ func soMaxConn() (int, error) {
 	s := strings.TrimSpace(string(data))
 	n, err := strconv.Atoi(s)
 	if err != nil || n <= 0 {
-		return -1, fmt.Errorf("cannot parse somaxconn %q read from %s: %s", s, soMaxConnFilePath, err)
+		return -1, fmt.Errorf("cannot parse somaxconn %q read from %s: %s", s, path, err)
 	}
 
 	// Linux stores the backlog in a uint16.
